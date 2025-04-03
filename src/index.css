@@ -1,0 +1,39 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    @apply bg-gray-100 text-gray-800;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    @apply font-bold;
+}
+
+a {
+    @apply text-blue-600 hover:text-blue-800;
+}
+
+.container {
+    @apply mx-auto px-4;
+}
+
+.tab {
+    @apply inline-block p-4 cursor-pointer;
+}
+
+.tab.active {
+    @apply border-b-2 border-blue-600;
+}
+
+.workshop-tile {
+    @apply bg-white shadow-md rounded-lg p-4 m-2 transition-transform transform hover:scale-105;
+}
+
+.workshop-detail {
+    @apply p-4;
+}
+
+.code-block {
+    @apply bg-gray-200 p-2 rounded;
+}
