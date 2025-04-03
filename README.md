@@ -5,46 +5,51 @@ This is a React application for our club, featuring information about our worksh
 ## Project Structure
 
 ```
-club-website
-├── public
-│   ├── index.html         # Main HTML file for the React application
-│   └── favicon.ico        # Favicon for the website
-├── src
-│   ├── components
-│   │   ├── Tabs.jsx       # Navigation tabs component
-│   │   ├── WorkshopTile.jsx# Component for displaying workshop tiles
-│   │   └── WorkshopDetail.jsx # Component for displaying workshop details
-│   ├── pages
-│   │   ├── HomePage.jsx   # Placeholder for home page content
-│   │   ├── Workshops.jsx   # Page displaying all workshops
-│   │   ├── ExecBoard.jsx   # Placeholder for executive board content
-│   │   └── DevTeam.jsx     # Placeholder for development team content
-│   ├── App.jsx            # Main application component
-│   ├── index.js           # Entry point for the React application
-│   └── index.css          # Global styles and Tailwind CSS imports
-├── package.json           # npm configuration file
-├── tailwind.config.js     # Tailwind CSS configuration file
-└── README.md              # Project documentation
+ufsec-site-test/
+├── public/                 # Static assets
+├── src/
+│   ├── components/         # Reusable React components
+│   │   ├── Tabs.jsx        # Navigation tabs
+│   │   ├── WorkshopTile.jsx # Workshop preview tiles
+│   │   └── WorkshopDetail.jsx # Workshop detail page
+│   ├── pages/              # Page components
+│   │   ├── HomePage.jsx    # Home page
+│   │   ├── Workshops.jsx   # Workshops page
+│   │   ├── ExecBoard.jsx   # Executive board page
+│   │   └── DevTeam.jsx     # Development team page
+│   ├── firebase/           # Firebase configuration
+│   │   └── firebase.js     # Firebase initialization
+│   ├── App.jsx             # Main app component
+│   ├── index.js            # Entry point
+│   └── index.css           # Global styles
+├── .env                    # Environment variables
+├── .gitignore              # Git ignore file
+├── package.json            # Project metadata and dependencies
+└── README.md               # Project documentation
 ```
 
 ## Setup Instructions
 
 1. Clone the repository:
+
    ```
    git clone <repository-url>
    ```
 
 2. Navigate to the project directory:
+
    ```
-   cd club-website
+   cd ufsec-site-test
    ```
 
 3. Install the dependencies:
+
    ```
    npm install
    ```
 
 4. Start the development server:
+
    ```
    npm start
    ```
