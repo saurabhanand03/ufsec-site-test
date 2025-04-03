@@ -5,53 +5,84 @@ import remarkGfm from 'remark-gfm';
 import remarkBreaks from 'remark-breaks';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { materialOceanic } from 'react-syntax-highlighter/dist/esm/styles/prism';
-import { db } from '../firebase/firebase';
+import { db, auth } from '../firebase/firebase';
 
 const getEmbedUrl = (url) => {
     if (url.includes('youtu.be/')) {
-        // Handle shortened YouTube URLs
         const videoId = url.split('youtu.be/')[1];
         return `https://www.youtube.com/embed/${videoId}`;
     } else if (url.includes('youtube.com/watch?v=')) {
-        // Handle standard YouTube URLs
         const videoId = new URL(url).searchParams.get('v');
         return `https://www.youtube.com/embed/${videoId}`;
     }
-    return url; // Return the original URL if it doesn't match either format
+    return url;
 };
 
 const WorkshopDetail = () => {
     const { id } = useParams();
     const history = useHistory();
     const [workshop, setWorkshop] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState(null);
 
     useEffect(() => {
         const unsubscribe = db.collection('workshops')
             .doc(id)
-            .onSnapshot(doc => {
+            .onSnapshot((doc) => {
                 if (doc.exists) {
                     setWorkshop({ id: doc.id, ...doc.data() });
+                } else {
+                    console.error('Workshop not found');
                 }
+                setLoading(false);
             });
-        return () => unsubscribe();
+
+        const unsubscribeAuth = auth.onAuthStateChanged((user) => {
+            if (user && user.email === 'asaurabh2003@gmail.com') {
+                setUser(user);
+            } else {
+                setUser(null);
+            }
+        });
+
+        return () => {
+            unsubscribe();
+            unsubscribeAuth();
+        };
     }, [id]);
 
-    if (!workshop) {
-        return <div>Loading...</div>;
+    if (loading) {
+        return <div className="text-center mt-8">Loading...</div>;
     }
+
+    if (!workshop) {
+        return <div className="text-center mt-8 text-red-500">Workshop not found.</div>;
+    }
+
+    const handleCopyCode = (code) => {
+        navigator.clipboard.writeText(code);
+        alert('Code copied to clipboard!');
+    };
 
     return (
         <div className="flex flex-col items-center p-8 bg-gray-100 min-h-screen">
-            {/* Back Button and Video */}
             <div className="relative w-full mb-8">
-                {/* Back Button */}
                 <button 
                     className="absolute top-0 left-0 text-blue-500 hover:underline" 
                     onClick={() => history.goBack()}
                 >
                     &larr; Back
                 </button>
-                {/* Video */}
+
+                {user && (
+                    <button 
+                        className="absolute top-0 right-0 text-blue-500 hover:underline" 
+                        onClick={() => history.push(`/upload?id=${workshop.id}`)}
+                    >
+                        Edit Workshop
+                    </button>
+                )}
+
                 <div className="flex justify-center">
                     <iframe
                         className="rounded-lg shadow-lg"
@@ -66,25 +97,30 @@ const WorkshopDetail = () => {
                 </div>
             </div>
 
-            {/* Title */}
             <h1 className="text-4xl font-bold text-center mb-8">{workshop.title}</h1>
-
-            {/* Markdown Content */}
-            <div className="prose prose-lg max-w-3xl text-lg">
+            <div className="prose prose-lg text-left w-full max-w-3xl break-words overflow-auto">
                 <ReactMarkdown
                     remarkPlugins={[remarkGfm, remarkBreaks]}
                     components={{
                         code({ node, inline, className, children, ...props }) {
                             const match = /language-(\w+)/.exec(className || '');
                             return !inline && match ? (
-                                <SyntaxHighlighter
-                                    style={materialOceanic}
-                                    language={match[1]}
-                                    PreTag="div"
-                                    {...props}
-                                >
-                                    {String(children).replace(/\n$/, '')}
-                                </SyntaxHighlighter>
+                                <div className="relative">
+                                    <button
+                                        className="absolute top-0 right-0 bg-gray-200 text-gray-600 px-2 py-1 rounded-bl"
+                                        onClick={() => handleCopyCode(String(children).replace(/\n$/, ''))}
+                                    >
+                                        Copy
+                                    </button>
+                                    <SyntaxHighlighter
+                                        style={materialOceanic}
+                                        language={match[1]}
+                                        PreTag="div"
+                                        {...props}
+                                    >
+                                        {String(children).replace(/\n$/, '')}
+                                    </SyntaxHighlighter>
+                                </div>
                             ) : (
                                 <code className={`bg-gray-100 px-1 rounded ${className}`} {...props}>
                                     {children}

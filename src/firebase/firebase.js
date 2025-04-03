@@ -1,4 +1,5 @@
 import firebase from "firebase/compat/app";
+import "firebase/compat/auth";
 import "firebase/compat/firestore";
 
 const firebaseConfig = {
@@ -11,8 +12,7 @@ const firebaseConfig = {
   measurementId: process.env.REACT_APP_FIREBASE_MEASUREMENT_ID,
 };
 
-firebase.initializeApp(firebaseConfig);
-
-const db = firebase.firestore();
-
-export { db };
+const app = firebase.initializeApp(firebaseConfig);
+export const auth = app.auth();
+export const db = app.firestore();
+export const googleProvider = new firebase.auth.GoogleAuthProvider();

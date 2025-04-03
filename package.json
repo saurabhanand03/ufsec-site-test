@@ -1,5 +1,5 @@
 {
-  "name": "club-website",
+  "name": "ufsec-site-test",
   "version": "1.0.0",
   "description": "A website for the club featuring workshops, exec board, and dev team information.",
   "main": "src/index.js",

@@ -4,6 +4,6 @@ module.exports = {
     extend: {},
   },
   plugins: [
-    require("@tailwindcss/aspect-ratio"), // Add this plugin
+    require("@tailwindcss/aspect-ratio"),
   ],
 };

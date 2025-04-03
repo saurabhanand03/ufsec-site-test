@@ -14,7 +14,16 @@ const getYoutubeThumbnail = (url) => {
 
 const formatDate = (date) => {
     if (date && date.toDate) {
-        return date.toDate().toLocaleDateString();
+        // Convert Firestore Timestamp to JavaScript Date
+        const jsDate = date.toDate();
+
+        // Format the date with day of the week
+        return jsDate.toLocaleDateString('en-US', {
+            weekday: 'short', // e.g., "Wed"
+            year: 'numeric',
+            month: 'numeric',
+            day: 'numeric',
+        });
     }
     return date;
 };
