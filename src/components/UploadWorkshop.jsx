@@ -27,11 +27,13 @@ const handleCopyCode = (code) => {
 const UploadWorkshop = () => {
     const history = useHistory();
     const location = useLocation();
+    const [presenterInput, setPresenterInput] = useState(''); // Input for adding a presenter
     const [formData, setFormData] = useState({
         title: '',
         videoLink: '',
         date: '',
         instructionsMarkdown: '',
+        presenters: [], // New presenters field
     });
     const [isEditing, setIsEditing] = useState(false);
     const editorRef = useRef(null);
@@ -54,6 +56,7 @@ const UploadWorkshop = () => {
                             videoLink: data.videoLink,
                             date: data.date.toDate().toISOString().split('T')[0], // Convert Firestore Timestamp to date string
                             instructionsMarkdown: data.instructionsMarkdown,
+                            presenters: data.presenters || [], // Initialize presenters field
                         });
                     }
                 });
@@ -63,6 +66,23 @@ const UploadWorkshop = () => {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
+    };
+
+    const handleAddPresenter = () => {
+        if (presenterInput.trim() && !formData.presenters.includes(presenterInput.trim())) {
+            setFormData({
+                ...formData,
+                presenters: [...formData.presenters, presenterInput.trim()],
+            });
+            setPresenterInput('');
+        }
+    };
+
+    const handleRemovePresenter = (presenter) => {
+        setFormData({
+            ...formData,
+            presenters: formData.presenters.filter((p) => p !== presenter),
+        });
     };
 
     const handleSubmit = async (e) => {
@@ -105,6 +125,24 @@ const UploadWorkshop = () => {
 
     return (
         <div className="flex flex-col items-center p-8 bg-gray-100 min-h-screen">
+            <div className="relative w-full mb-8">
+                {/* Back Button */}
+                <button
+                    className="absolute top-0 left-0 text-blue-500 hover:underline"
+                    onClick={() => {
+                        if (isEditing) {
+                            const params = new URLSearchParams(location.search);
+                            const id = params.get('id');
+                            history.push(`/workshops/${id}`); // Navigate to the Workshop Details page
+                        } else {
+                            history.push('/workshops'); // Navigate to the All Workshops page
+                        }
+                    }}
+                >
+                    &larr; Back
+                </button>
+            </div>
+
             <form
                 className="bg-white p-6 rounded shadow-md w-full max-w-4xl"
                 onSubmit={handleSubmit}
@@ -158,6 +196,42 @@ const UploadWorkshop = () => {
                         className="w-full p-2 border rounded"
                         required
                     />
+                </div>
+                <div className="mb-4">
+                    <label className="block text-gray-700">Presenters</label>
+                    <div className="flex items-center space-x-2">
+                        <input
+                            type="text"
+                            value={presenterInput}
+                            onChange={(e) => setPresenterInput(e.target.value)}
+                            placeholder="Add a presenter"
+                            className="w-full p-2 border rounded"
+                        />
+                        <button
+                            type="button"
+                            onClick={handleAddPresenter}
+                            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                        >
+                            Add
+                        </button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {formData.presenters.map((presenter) => (
+                            <span
+                                key={presenter}
+                                className="flex items-center bg-gray-200 text-gray-700 px-3 py-1 rounded-full"
+                            >
+                                {presenter}
+                                <button
+                                    type="button"
+                                    onClick={() => handleRemovePresenter(presenter)}
+                                    className="ml-2 text-red-500 hover:text-red-700"
+                                >
+                                    &times;
+                                </button>
+                            </span>
+                        ))}
+                    </div>
                 </div>
                 <div className="flex space-x-4">
                     <div className="w-1/2">

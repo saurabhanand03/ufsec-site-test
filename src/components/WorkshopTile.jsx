@@ -28,7 +28,7 @@ const formatDate = (date) => {
     return date;
 };
 
-const WorkshopTile = ({ id, title, date, videoLink }) => {
+const WorkshopTile = ({ id, title, date, videoLink, presenters = [] }) => {
     const history = useHistory();
 
     const handleClick = () => {
@@ -49,6 +49,28 @@ const WorkshopTile = ({ id, title, date, videoLink }) => {
             </div>
             <h3 className="text-lg font-semibold mt-2">{title}</h3>
             <p className="text-gray-600">{formatDate(date)}</p>
+            <div className="flex flex-wrap gap-2 mt-2">
+                {presenters.length > 0 ? (
+                    presenters.map((presenter) => (
+                        <span
+                            key={presenter}
+                            className="flex items-center bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm"
+                        >
+                            <button
+                                onClick={(e) => {
+                                    e.stopPropagation(); // Prevent triggering the tile click
+                                    history.push(`/workshops?presenter=${presenter}`);
+                                }}
+                                className="text-blue-500 hover:underline"
+                            >
+                                {presenter}
+                            </button>
+                        </span>
+                    ))
+                ) : (
+                    <span className="text-sm text-gray-500">No presenters listed</span>
+                )}
+            </div>
         </div>
     );
 };
