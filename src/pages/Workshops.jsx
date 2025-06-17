@@ -20,6 +20,7 @@ const Workshops = () => {
                 id: doc.id,
                 ...doc.data(),
                 presenters: doc.data().presenters || [], // Ensure presenters is always an array
+                status: doc.data().status || 'published', // Default to published for backward compatibility
             }));
             setWorkshops(workshopsData);
             setFilteredWorkshops(workshopsData);
@@ -51,44 +52,61 @@ const Workshops = () => {
         };
     }, []);
 
-    // Listen for changes in the query string and filter workshops accordingly
-    useEffect(() => {
-        const params = new URLSearchParams(location.search);
-        const presenter = params.get('presenter');
-        if (presenter) {
-            const filtered = workshops.filter((workshop) =>
-                workshop.presenters.includes(presenter)
-            );
-            setFilteredWorkshops(filtered);
-            setSearchQuery(presenter); // Update the search bar with the presenter's name
-        } else {
-            setFilteredWorkshops(workshops); // Reset to show all workshops if no presenter is specified
-            setSearchQuery(''); // Clear the search bar
-        }
-    }, [location.search, workshops]); // Trigger when the query string or workshops change
-
     // Helper function to check if user can manage workshops
     const canManageWorkshops = () => {
         return userRole === 'admin' || userRole === 'workshop-lead';
     };
 
+    // Listen for changes in the query string and filter workshops accordingly
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        const presenter = params.get('presenter');
+        
+        if (presenter) {
+            // Filter by presenter and apply appropriate permission filters
+            const filtered = workshops.filter((workshop) => 
+                workshop.presenters.includes(presenter) && 
+                (workshop.status === 'published' || canManageWorkshops())
+            );
+            setFilteredWorkshops(filtered);
+            setSearchQuery(presenter); // Update the search bar with the presenter's name
+        } else {
+            // Apply filtering based on current state
+            applyFilters(workshops, searchQuery);
+        }
+    }, [location.search, workshops, userRole, searchQuery]); 
+
+    // Helper function to apply all filters
+    const applyFilters = (workshopList, query) => {
+        // First filter by search query
+        let filtered = workshopList;
+        
+        if (query) {
+            filtered = filtered.filter((workshop) =>
+                workshop.title.toLowerCase().includes(query.toLowerCase()) ||
+                workshop.presenters.some((presenter) =>
+                    presenter.toLowerCase().includes(query.toLowerCase())
+                )
+            );
+        }
+        
+        // Filter drafts based on permissions
+        if (!canManageWorkshops()) {
+            filtered = filtered.filter((workshop) => workshop.status === 'published');
+        }
+        
+        setFilteredWorkshops(filtered);
+    };
+
     const handleSearch = (e) => {
         const query = e.target.value.toLowerCase();
         setSearchQuery(query);
-
-        // Filter workshops based on the search query
-        const filtered = workshops.filter((workshop) =>
-            workshop.title.toLowerCase().includes(query) ||
-            workshop.presenters.some((presenter) =>
-                presenter.toLowerCase().includes(query)
-            )
-        );
-        setFilteredWorkshops(filtered);
+        applyFilters(workshops, query);
     };
 
     const clearSearch = () => {
         setSearchQuery('');
-        setFilteredWorkshops(workshops); // Reset to show all workshops
+        applyFilters(workshops, '');
     };
 
     const sortedWorkshops = [...filteredWorkshops].sort((a, b) => {
@@ -100,6 +118,10 @@ const Workshops = () => {
     const toggleSortOrder = () => {
         setSortOrder((prevOrder) => (prevOrder === "newest" ? "oldest" : "newest"));
     };
+
+    // Count drafts for the badge
+    const draftCount = canManageWorkshops() ? 
+        workshops.filter(w => w.status === 'draft').length : 0;
 
     return (
         <div className="p-4">
@@ -124,31 +146,40 @@ const Workshops = () => {
                 )}
             </div>
 
-            {/* Sort and Upload Buttons */}
+            {/* Sort and Create Buttons */}
             <div className="mb-4 flex items-center justify-between">
-                <button 
-                    onClick={toggleSortOrder} 
-                    className="flex items-center bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 transition"
-                >
-                    {sortOrder === "newest" ? (
-                        <>
-                            <ChevronDownIcon className="h-5 w-5 mr-2" />
-                            Newest First
-                        </>
-                    ) : (
-                        <>
-                            <ChevronUpIcon className="h-5 w-5 mr-2" />
-                            Oldest First
-                        </>
+                <div className="flex items-center">
+                    <button 
+                        onClick={toggleSortOrder} 
+                        className="flex items-center bg-blue-500 text-white px-4 py-2 rounded shadow hover:bg-blue-600 transition"
+                    >
+                        {sortOrder === "newest" ? (
+                            <>
+                                <ChevronDownIcon className="h-5 w-5 mr-2" />
+                                Newest First
+                            </>
+                        ) : (
+                            <>
+                                <ChevronUpIcon className="h-5 w-5 mr-2" />
+                                Oldest First
+                            </>
+                        )}
+                    </button>
+                    
+                    {/* Draft count indicator for admins/workshop leads */}
+                    {canManageWorkshops() && draftCount > 0 && (
+                        <div className="ml-4 bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-sm flex items-center">
+                            <span className="font-medium">Drafts: {draftCount}</span>
+                        </div>
                     )}
-                </button>
+                </div>
 
                 {canManageWorkshops() && (
                     <button
                         onClick={() => history.push('/upload')}
                         className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
                     >
-                        Upload Workshop
+                        Create Workshop
                     </button>
                 )}
             </div>
@@ -163,10 +194,18 @@ const Workshops = () => {
                         date={workshop.date} 
                         videoLink={workshop.videoLink} 
                         presenters={workshop.presenters}
-                        createdBy={workshop.createdBy} // Pass creator information
+                        createdBy={workshop.createdBy}
+                        status={workshop.status}
                     />
                 ))}
             </div>
+            
+            {/* No workshops message */}
+            {sortedWorkshops.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                    <p className="text-xl">No workshops found</p>
+                </div>
+            )}
         </div>
     );
 };

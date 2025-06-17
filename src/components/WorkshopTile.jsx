@@ -28,7 +28,7 @@ const formatDate = (date) => {
     return date;
 };
 
-const WorkshopTile = ({ id, title, date, videoLink, presenters = [], createdBy = null }) => {
+const WorkshopTile = ({ id, title, date, videoLink, presenters = [], createdBy = null, status = 'published' }) => {
     const history = useHistory();
 
     const handleClick = () => {
@@ -37,25 +37,25 @@ const WorkshopTile = ({ id, title, date, videoLink, presenters = [], createdBy =
 
     return (
         <div 
-            className="border rounded-lg shadow-md p-4 m-2 cursor-pointer hover:shadow-lg transition-shadow duration-300" 
+            className="border rounded-lg shadow-md p-4 m-2 cursor-pointer hover:shadow-lg transition-shadow duration-300 relative" 
             onClick={handleClick}
         >
+            {/* Draft Badge */}
+            {status === 'draft' && (
+                <div className="absolute top-2 right-2 z-10 bg-yellow-100 text-yellow-800 px-2 py-1 rounded-full text-xs font-bold">
+                    DRAFT
+                </div>
+            )}
+            
             <div className="aspect-w-16 aspect-h-9">
                 <img 
-                    className="w-full h-full rounded-lg object-cover" 
+                    className={`w-full h-full rounded-lg object-cover ${status === 'draft' ? 'opacity-70' : ''}`}
                     src={getYoutubeThumbnail(videoLink)} 
                     alt={title} 
                 />
             </div>
             <h3 className="text-lg font-semibold mt-2">{title}</h3>
             <p className="text-gray-600">{formatDate(date)}</p>
-            
-            {/* Creator info if available */}
-            {createdBy && (
-                <p className="text-gray-500 text-sm italic mt-1">
-                    By: {createdBy.displayName || createdBy.email.split('@')[0]}
-                </p>
-            )}
             
             <div className="flex flex-wrap gap-2 mt-2">
                 {presenters.length > 0 ? (

@@ -144,6 +144,32 @@ const AdminPage = () => {
         }
     };
 
+    // Add this function to handle editing display names
+    const handleDisplayNameChange = async (uid, newDisplayName) => {
+        // Only allow admins to change display names
+        if (userRole !== 'admin') {
+            alert('Only administrators can change user display names');
+            return;
+        }
+
+        if (!newDisplayName.trim()) {
+            alert('Display name cannot be empty');
+            return;
+        }
+
+        try {
+            await db.collection('users').doc(uid).update({
+                displayName: newDisplayName.trim()
+            });
+            
+            // Refresh the users list
+            fetchUsers();
+        } catch (err) {
+            console.error('Error updating display name:', err);
+            setError('Failed to update display name');
+        }
+    };
+
     // Separate users by role
     const adminUsers = users.filter(user => user.role === 'admin');
     const workshopLeadUsers = users.filter(user => user.role === 'workshop-lead');
@@ -171,7 +197,7 @@ const AdminPage = () => {
                         <thead className="bg-gray-50">
                             <tr>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                    Name
+                                    Display Name
                                 </th>
                                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                     Email
@@ -193,9 +219,19 @@ const AdminPage = () => {
                             {usersList.map((user) => (
                                 <tr key={user.uid}>
                                     <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="font-medium text-gray-900">
-                                            {user.displayName || 'N/A'}
-                                        </div>
+                                        {userRole === 'admin' ? (
+                                            <input
+                                                type="text"
+                                                defaultValue={user.displayName || ''}
+                                                onBlur={(e) => handleDisplayNameChange(user.uid, e.target.value)}
+                                                className="border rounded p-1 text-sm w-full"
+                                                placeholder="Enter display name"
+                                            />
+                                        ) : (
+                                            <div className="font-medium text-gray-900">
+                                                {user.displayName || 'N/A'}
+                                            </div>
+                                        )}
                                     </td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm">
                                         {user.email}

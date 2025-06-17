@@ -7,6 +7,64 @@ import PresenterSelector from './workshop/PresenterSelector';
 import VideoPreview from './workshop/VideoPreview';
 import { DEFAULT_MARKDOWN } from './workshop/MarkdownPlaceholders';
 
+const PublishModal = ({ isOpen, onClose, onConfirm, workshopTitle }) => {
+    if (!isOpen) return null;
+    
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                <h3 className="text-xl font-bold mb-4">Publish Workshop</h3>
+                <p className="mb-6">
+                    Are you sure you want to publish <span className="font-semibold">{workshopTitle}</span>? 
+                    This will make it visible to all users.
+                </p>
+                <div className="flex justify-end space-x-3">
+                    <button 
+                        onClick={onClose}
+                        className="px-4 py-2 border border-gray-300 rounded hover:bg-gray-100"
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        onClick={onConfirm}
+                        className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                    >
+                        Publish
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const SuccessModal = ({ isOpen, onClose, workshopTitle }) => {
+    if (!isOpen) return null;
+    
+    return (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                <div className="flex items-center justify-center mb-4">
+                    <svg className="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                </div>
+                <h3 className="text-xl font-bold text-center mb-2">Workshop Published!</h3>
+                <p className="text-center mb-6">
+                    <span className="font-semibold">{workshopTitle}</span> has been successfully published and is now visible to all users.
+                </p>
+                <div className="flex justify-center">
+                    <button 
+                        onClick={onClose}
+                        className="px-6 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const UploadWorkshop = () => {
     const history = useHistory();
     const location = useLocation();
@@ -17,10 +75,14 @@ const UploadWorkshop = () => {
         date: new Date().toISOString().split('T')[0],
         instructionsMarkdown: '',
         presenters: [],
+        status: 'draft', // Default status is draft
     });
     const [isEditing, setIsEditing] = useState(false);
     const [userRole, setUserRole] = useState(null);
     const [currentUser, setCurrentUser] = useState(null);
+    const [showPublishModal, setShowPublishModal] = useState(false);
+    const [showSuccessModal, setShowSuccessModal] = useState(false);
+    const [workshopId, setWorkshopId] = useState(null);
 
     // Fetch all unique presenters from the database
     useEffect(() => {
@@ -76,14 +138,15 @@ const UploadWorkshop = () => {
 
             // Add current user's name as a presenter by default (only for new workshops)
             if (!isEditing) {
-                const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+                // Use Firestore display name instead of Auth display name
+                const firestoreDisplayName = userDoc.data().displayName || currentUser.email.split('@')[0];
                 
                 // Only add if not already in the presenters list
                 setFormData(prevData => {
-                    if (!prevData.presenters.includes(displayName)) {
+                    if (!prevData.presenters.includes(firestoreDisplayName)) {
                         return {
                             ...prevData,
-                            presenters: [...prevData.presenters, displayName],
+                            presenters: [...prevData.presenters, firestoreDisplayName],
                             // Set default markdown for new workshops
                             instructionsMarkdown: DEFAULT_MARKDOWN
                         };
@@ -102,6 +165,7 @@ const UploadWorkshop = () => {
         const id = params.get('id');
         if (id) {
             setIsEditing(true);
+            setWorkshopId(id);
             // Fetch workshop data for editing
             db.collection('workshops')
                 .doc(id)
@@ -115,6 +179,7 @@ const UploadWorkshop = () => {
                             date: data.date.toDate().toISOString().split('T')[0],
                             instructionsMarkdown: data.instructionsMarkdown,
                             presenters: data.presenters || [],
+                            status: data.status || 'draft', // Keep existing status or default to draft
                         });
                     }
                 });
@@ -172,20 +237,59 @@ const UploadWorkshop = () => {
                 }
             }
 
-            let workshopId;
+            let id;
             if (isEditing) {
                 const params = new URLSearchParams(location.search);
-                workshopId = params.get('id');
-                await db.collection('workshops').doc(workshopId).update(workshopData);
+                id = params.get('id');
+                await db.collection('workshops').doc(id).update(workshopData);
             } else {
                 const docRef = await db.collection('workshops').add(workshopData);
-                workshopId = docRef.id;
+                id = docRef.id;
+                setWorkshopId(id);
             }
 
             // Redirect to the workshop details page
-            history.push(`/workshops/${workshopId}`);
+            history.push(`/workshops/${id}`);
         } catch (error) {
             console.error('Error uploading workshop:', error);
+        }
+    };
+
+    const handlePublishClick = () => {
+        setShowPublishModal(true);
+    };
+
+    const handlePublishConfirm = async () => {
+        try {
+            const id = workshopId || new URLSearchParams(location.search).get('id');
+            
+            if (id) {
+                await db.collection('workshops').doc(id).update({
+                    status: 'published',
+                    publishedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    publishedBy: {
+                        uid: currentUser.uid,
+                        email: currentUser.email,
+                        displayName: currentUser.displayName || currentUser.email.split('@')[0]
+                    }
+                });
+                
+                setShowPublishModal(false);
+                setShowSuccessModal(true);
+            }
+        } catch (error) {
+            console.error('Error publishing workshop:', error);
+            setShowPublishModal(false);
+        }
+    };
+
+    const handleSuccessModalClose = () => {
+        setShowSuccessModal(false);
+        
+        // Redirect to the workshop details page after successful publish
+        const id = workshopId || new URLSearchParams(location.search).get('id');
+        if (id) {
+            history.push(`/workshops/${id}`);
         }
     };
 
@@ -214,8 +318,22 @@ const UploadWorkshop = () => {
                 onSubmit={handleSubmit}
             >
                 <h1 className="text-2xl font-bold mb-4">
-                    {isEditing ? 'Edit Workshop' : 'Upload Workshop'}
+                    {isEditing ? 'Edit Workshop' : 'Create Workshop'}
                 </h1>
+                
+                {/* Status indicator */}
+                {isEditing && (
+                    <div className="mb-4">
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                            formData.status === 'published' 
+                                ? 'bg-green-100 text-green-800' 
+                                : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                            Status: {formData.status === 'published' ? 'Published' : 'Draft'}
+                        </span>
+                    </div>
+                )}
+                
                 <div className="mb-4">
                     <label className="block text-gray-700">Title</label>
                     <input
@@ -273,15 +391,39 @@ const UploadWorkshop = () => {
                     />
                 </div>
                 
-                <div className="flex justify-end">
+                <div className="flex justify-end space-x-4">
+                    {isEditing && formData.status === 'draft' && (userRole === 'admin' || userRole === 'workshop-lead') && (
+                        <button
+                            type="button"
+                            onClick={handlePublishClick}
+                            className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 font-semibold"
+                        >
+                            Publish Workshop
+                        </button>
+                    )}
                     <button
                         type="submit"
                         className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold"
                     >
-                        {isEditing ? 'Save Changes' : 'Submit Workshop'}
+                        {isEditing ? 'Save Changes' : 'Save as Draft'}
                     </button>
                 </div>
             </form>
+            
+            {/* Publish Confirmation Modal */}
+            <PublishModal 
+                isOpen={showPublishModal}
+                onClose={() => setShowPublishModal(false)}
+                onConfirm={handlePublishConfirm}
+                workshopTitle={formData.title}
+            />
+            
+            {/* Success Modal */}
+            <SuccessModal 
+                isOpen={showSuccessModal}
+                onClose={handleSuccessModalClose}
+                workshopTitle={formData.title}
+            />
         </div>
     );
 };

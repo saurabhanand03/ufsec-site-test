@@ -1,34 +1,47 @@
-export const DEFAULT_MARKDOWN = `# Workshop Instructions
+export const DEFAULT_MARKDOWN = `# Workshop Title
 
-## Overview
-Brief description of what this workshop covers.
+Brief description of the workshop.
 
 ## Prerequisites
-* Item 1
-* Item 2
+* Install [Git](https://git-scm.com/downloads) and [Node.js](https://nodejs.org/)
+* Basic knowledge of [JavaScript](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
 
 ## Setup Instructions
-1. First step
-2. Second step
+1. Clone the repository: \`git clone https://github.com/ufsec/example.git\`
+2. Run \`npm install\`
 
 ## Code Examples
 
+### Basic Code Block
+\`\`\`
+console.log("Hello World!");
+const sum = (a, b) => a + b;
+\`\`\`
+
+### Code Block with Filename
 \`\`\`python
-# filename: app.py
-def hello_world():
-    print("Hello, SEC!")
+# filename: hello.py
+def greet(name):
+    return f"Hello, {name}!"
+
+print(greet("SEC"))
 \`\`\`
 
+### Code Block with Added Section
 \`\`\`javascript
-// filename: index.js
-function greeting() {
-  console.log("Welcome to SEC workshop!");
-  return "Hello, developer!";
+// filename: app.js
+import React from 'react';
+
+// [add]
+function Welcome() {
+  return <h1>Welcome to SEC!</h1>;
 }
+// [/add]
+
+export default App;
 \`\`\`
 
-## Step 1: Create Your HTML File
-
+### Code Block with Modified Section
 \`\`\`html
 <!-- filename: index.html -->
 <!DOCTYPE html>
@@ -37,109 +50,32 @@ function greeting() {
   <title>SEC Workshop</title>
 </head>
 <body>
-  <h1>Web Development with SEC</h1>
+  <!-- [modify] -->
+  <h1>Workshop Demo</h1>
+  <!-- [/modify] -->
   <div id="app"></div>
-  <script src="index.js"></script>
 </body>
 </html>
 \`\`\`
 
-## Step 2: Add Some Styling
-
-\`\`\`html
-<!-- filename: index.html -->
-<!DOCTYPE html>
-<html>
-<head>
-  <title>SEC Workshop</title>
-  <!-- [highlight] -->
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      margin: 0;
-      padding: 20px;
-      background-color: #f5f5f5;
-    }
-    
-    h1 {
-      color: #0021A5; /* UF Blue */
-    }
-    
-    #app {
-      background: white;
-      border-radius: 8px;
-      padding: 20px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-  </style>
-  <!-- [/highlight] -->
-</head>
-<body>
-  <h1>Web Development with SEC</h1>
-  <div id="app"></div>
-  <script src="index.js"></script>
-</body>
-</html>
-\`\`\`
-
-## Step 3: Update JavaScript Functionality
-
+### Code Block with Remove Section
 \`\`\`javascript
-// filename: index.js
-function greeting() {
-  console.log("Welcome to SEC workshop!");
-  return "Hello, developer!";
+// filename: utils.js
+// [remove]
+// This old function will be removed
+function oldFunction() {
+  console.log("This will be deleted");
 }
+// [/remove]
 
-// [highlight]
-// Add event listener when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  const appDiv = document.getElementById('app');
-  
-  // Create a new element
-  const messageElement = document.createElement('p');
-  messageElement.textContent = greeting();
-  
-  // Add it to the DOM
-  appDiv.appendChild(messageElement);
-});
-// [/highlight]
-\`\`\`
-
-## Step 4: Python Example with Highlights
-
-\`\`\`python
-# filename: data_processor.py
-import pandas as pd
-
-def load_data(file_path):
-    return pd.read_csv(file_path)
-
-# [highlight]
-# Add a new function to process data
-def process_data(data):
-    # Remove missing values
-    data = data.dropna()
-    
-    # Normalize numeric columns
-    numeric_cols = data.select_dtypes(include=['float64', 'int64']).columns
-    data[numeric_cols] = (data[numeric_cols] - data[numeric_cols].mean()) / data[numeric_cols].std()
-    
-    return data
-# [/highlight]
-
-if __name__ == "__main__":
-    data = load_data("data.csv")
-    print("Data loaded successfully")
+function newFunction() {
+  console.log("Keep this function");
+}
 \`\`\`
 
 ## Additional Resources
-* [Link Description](https://example.com)
-* [Another Resource](https://example.com)
-
-## Common Issues & Solutions
-**Issue**: Description of common issue
-**Solution**: How to fix it
+* [SEC Website](https://ufsec.com)
+* [Documentation](https://example.com)
 
 ---
 *Created by the UF SEC team*
