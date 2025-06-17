@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import { auth, googleProvider } from '../firebase/firebase';
+import { auth, googleProvider, db } from '../firebase/firebase';
+import firebase from 'firebase/compat/app';
 
 const Tabs = () => {
     const [activeTab, setActiveTab] = useState('home');
     const [user, setUser] = useState(null);
+    const [userRole, setUserRole] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const modalRef = useRef(null);
 
@@ -14,18 +16,33 @@ const Tabs = () => {
 
     useEffect(() => {
         // Check authentication state
-        const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
-            if (user) {
-                if (user.email === 'asaurabh2003@gmail.com') {
-                    setUser(user);
+        const unsubscribeAuth = auth.onAuthStateChanged(async (authUser) => {
+            if (authUser) {
+                // Check if user exists in database
+                const userDoc = await db.collection('users').doc(authUser.uid).get();
+                
+                if (userDoc.exists) {
+                    // User exists in database
+                    const userData = userDoc.data();
+                    setUser(authUser);
+                    setUserRole(userData.role);
                 } else {
-                    // Log out unauthorized users
-                    await auth.signOut();
-                    setUser(null);
-                    alert('Access denied. Only asaurabh2003@gmail.com is allowed.');
+                    // Create new user in database
+                    const newUser = {
+                        uid: authUser.uid,
+                        email: authUser.email,
+                        displayName: authUser.displayName || authUser.email.split('@')[0],
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        role: 'user' // Default role
+                    };
+                    
+                    await db.collection('users').doc(authUser.uid).set(newUser);
+                    setUser(authUser);
+                    setUserRole('user');
                 }
             } else {
                 setUser(null);
+                setUserRole(null);
             }
         });
 
@@ -44,6 +61,7 @@ const Tabs = () => {
         try {
             await auth.signOut();
             setUser(null);
+            setUserRole(null);
         } catch (error) {
             console.error('Error logging out:', error);
         }
@@ -71,6 +89,21 @@ const Tabs = () => {
         };
     }, [isModalOpen]);
 
+    // Helper function to determine if user has dashboard access
+    const hasDashboardAccess = () => {
+        return userRole === 'admin' || userRole === 'workshop-lead';
+    };
+
+    // Helper function to get role display text with appropriate styling
+    const getRoleDisplay = () => {
+        if (userRole === 'admin') {
+            return <p className="text-green-500 font-bold mt-1">Admin Access</p>;
+        } else if (userRole === 'workshop-lead') {
+            return <p className="text-blue-500 font-bold mt-1">Workshop Lead</p>;
+        }
+        return null;
+    };
+
     return (
         <div className="flex justify-between items-center p-4 bg-gray-200 relative">
             {/* Navigation Links */}
@@ -87,6 +120,11 @@ const Tabs = () => {
                 <Link to="/dev-team" onClick={() => handleTabClick('dev-team')} className={`tab ${activeTab === 'dev-team' ? 'active' : ''}`}>
                     Dev Team
                 </Link>
+                {hasDashboardAccess() && (
+                    <Link to="/admin" onClick={() => handleTabClick('admin')} className={`tab ${activeTab === 'admin' ? 'active' : ''}`}>
+                        Admin Dashboard
+                    </Link>
+                )}
             </div>
 
             {/* Logo and Modal */}
@@ -107,7 +145,8 @@ const Tabs = () => {
                     >
                         {user ? (
                             <div className="text-center">
-                                <p className="text-green-500 font-bold">Logged in as Admin</p>
+                                <p className="font-medium">{user.email}</p>
+                                {getRoleDisplay()}
                                 <button
                                     className="mt-4 px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600"
                                     onClick={handleLogout}
@@ -122,7 +161,7 @@ const Tabs = () => {
                                     className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
                                     onClick={handleLogin}
                                 >
-                                    Login as Admin
+                                    Login with Google
                                 </button>
                             </div>
                         )}

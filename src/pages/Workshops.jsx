@@ -10,6 +10,7 @@ const Workshops = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [sortOrder, setSortOrder] = useState("newest");
     const [user, setUser] = useState(null);
+    const [userRole, setUserRole] = useState(null);
     const history = useHistory();
     const location = useLocation(); // Hook to access the current URL
 
@@ -28,11 +29,20 @@ const Workshops = () => {
     }, []);
 
     useEffect(() => {
-        const unsubscribeAuth = auth.onAuthStateChanged((user) => {
-            if (user && user.email === 'asaurabh2003@gmail.com') {
-                setUser(user);
+        const unsubscribeAuth = auth.onAuthStateChanged(async (authUser) => {
+            if (authUser) {
+                setUser(authUser);
+                
+                // Check user role
+                const userDoc = await db.collection('users').doc(authUser.uid).get();
+                if (userDoc.exists) {
+                    setUserRole(userDoc.data().role);
+                } else {
+                    setUserRole('user');
+                }
             } else {
                 setUser(null);
+                setUserRole(null);
             }
         });
 
@@ -56,6 +66,11 @@ const Workshops = () => {
             setSearchQuery(''); // Clear the search bar
         }
     }, [location.search, workshops]); // Trigger when the query string or workshops change
+
+    // Helper function to check if user can manage workshops
+    const canManageWorkshops = () => {
+        return userRole === 'admin' || userRole === 'workshop-lead';
+    };
 
     const handleSearch = (e) => {
         const query = e.target.value.toLowerCase();
@@ -128,7 +143,7 @@ const Workshops = () => {
                     )}
                 </button>
 
-                {user && (
+                {canManageWorkshops() && (
                     <button
                         onClick={() => history.push('/upload')}
                         className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
@@ -147,7 +162,8 @@ const Workshops = () => {
                         title={workshop.title} 
                         date={workshop.date} 
                         videoLink={workshop.videoLink} 
-                        presenters={workshop.presenters} // Pass presenters as a prop
+                        presenters={workshop.presenters}
+                        createdBy={workshop.createdBy} // Pass creator information
                     />
                 ))}
             </div>

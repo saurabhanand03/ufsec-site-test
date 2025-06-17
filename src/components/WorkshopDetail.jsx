@@ -1,11 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useHistory } from 'react-router-dom';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { materialOceanic } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { db, auth } from '../firebase/firebase';
+import MarkdownRenderer from './workshop/MarkdownRenderer';
 
 const getEmbedUrl = (url) => {
     if (url.includes('youtu.be/')) {
@@ -23,7 +19,12 @@ const WorkshopDetail = () => {
     const history = useHistory();
     const [workshop, setWorkshop] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [user, setUser] = useState(null);
+    const [userRole, setUserRole] = useState(null);
+    
+    // Helper function to check if user can edit workshops
+    const canEditWorkshop = () => {
+        return userRole === 'admin' || userRole === 'workshop-lead';
+    };
 
     useEffect(() => {
         const unsubscribe = db.collection('workshops')
@@ -37,11 +38,17 @@ const WorkshopDetail = () => {
                 setLoading(false);
             });
 
-        const unsubscribeAuth = auth.onAuthStateChanged((user) => {
-            if (user && user.email === 'asaurabh2003@gmail.com') {
-                setUser(user);
+        const unsubscribeAuth = auth.onAuthStateChanged(async (user) => {
+            if (user) {
+                // Check user role
+                const userDoc = await db.collection('users').doc(user.uid).get();
+                if (userDoc.exists) {
+                    setUserRole(userDoc.data().role);
+                } else {
+                    setUserRole('user');
+                }
             } else {
-                setUser(null);
+                setUserRole(null);
             }
         });
 
@@ -64,12 +71,12 @@ const WorkshopDetail = () => {
             <div className="relative w-full mb-8">
                 <button 
                     className="absolute top-0 left-0 text-blue-500 hover:underline" 
-                    onClick={() => history.push('/workshops')} // Navigate to the All Workshops page
+                    onClick={() => history.push('/workshops')}
                 >
                     &larr; Back
                 </button>
 
-                {user && (
+                {canEditWorkshop() && (
                     <button 
                         className="absolute top-0 right-0 text-blue-500 hover:underline" 
                         onClick={() => history.push(`/upload?id=${workshop.id}`)}
@@ -94,49 +101,48 @@ const WorkshopDetail = () => {
 
             <h1 className="text-4xl font-bold text-center mb-4">{workshop.title}</h1>
 
-            {/* Presenter Bubbles */}
-            <div className="flex flex-wrap gap-2 justify-center mb-8">
-                {workshop.presenters.map((presenter) => (
-                    <span
-                        key={presenter}
-                        className="flex items-center bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm"
-                    >
-                        <button
-                            onClick={() => history.push(`/workshops?presenter=${encodeURIComponent(presenter)}`)}
-                            className="text-blue-500 hover:underline"
-                        >
-                            {presenter}
-                        </button>
+            {/* Workshop metadata section */}
+            <div className="flex flex-col w-full max-w-3xl mb-6">
+                {/* Date and Creator Info */}
+                <div className="flex flex-wrap items-center justify-between text-gray-600 mb-4">
+                    <span>
+                        {workshop.date?.toDate().toLocaleDateString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                        })}
                     </span>
-                ))}
+                    
+                    {workshop.createdBy && (
+                        <span className="italic">
+                            Created by: {workshop.createdBy.displayName || workshop.createdBy.email}
+                        </span>
+                    )}
+                </div>
+
+                {/* Presenter Bubbles */}
+                <div className="flex flex-wrap gap-2 mb-4">
+                    {workshop.presenters.map((presenter) => (
+                        <span
+                            key={presenter}
+                            className="flex items-center bg-gray-200 text-gray-700 px-3 py-1 rounded-full text-sm"
+                        >
+                            <button
+                                onClick={() => history.push(`/workshops?presenter=${encodeURIComponent(presenter)}`)}
+                                className="text-blue-500 hover:underline"
+                            >
+                                {presenter}
+                            </button>
+                        </span>
+                    ))}
+                </div>
             </div>
 
-            <div className="prose prose-lg text-left w-full max-w-3xl break-words overflow-auto">
-                <ReactMarkdown
-                    remarkPlugins={[remarkGfm, remarkBreaks]}
-                    components={{
-                        code({ node, inline, className, children, ...props }) {
-                            const match = /language-(\w+)/.exec(className || '');
-                            return !inline && match ? (
-                                <SyntaxHighlighter
-                                    style={materialOceanic}
-                                    language={match[1]}
-                                    PreTag="div"
-                                    {...props}
-                                >
-                                    {String(children).replace(/\n$/, '')}
-                                </SyntaxHighlighter>
-                            ) : (
-                                <code className={`bg-gray-100 px-1 rounded ${className}`} {...props}>
-                                    {children}
-                                </code>
-                            );
-                        },
-                    }}
-                >
-                    {workshop.instructionsMarkdown || ''}
-                </ReactMarkdown>
-            </div>
+            <MarkdownRenderer 
+                content={workshop.instructionsMarkdown} 
+                className="text-left w-full max-w-3xl break-words overflow-auto" 
+            />
         </div>
     );
 };

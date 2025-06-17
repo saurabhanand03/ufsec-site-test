@@ -28,7 +28,7 @@ const formatDate = (date) => {
     return date;
 };
 
-const WorkshopTile = ({ id, title, date, videoLink, presenters = [] }) => {
+const WorkshopTile = ({ id, title, date, videoLink, presenters = [], createdBy = null }) => {
     const history = useHistory();
 
     const handleClick = () => {
@@ -49,6 +49,14 @@ const WorkshopTile = ({ id, title, date, videoLink, presenters = [] }) => {
             </div>
             <h3 className="text-lg font-semibold mt-2">{title}</h3>
             <p className="text-gray-600">{formatDate(date)}</p>
+            
+            {/* Creator info if available */}
+            {createdBy && (
+                <p className="text-gray-500 text-sm italic mt-1">
+                    By: {createdBy.displayName || createdBy.email.split('@')[0]}
+                </p>
+            )}
+            
             <div className="flex flex-wrap gap-2 mt-2">
                 {presenters.length > 0 ? (
                     presenters.map((presenter) => (

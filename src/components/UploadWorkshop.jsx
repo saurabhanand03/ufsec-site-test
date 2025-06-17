@@ -1,44 +1,102 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useHistory, useLocation } from 'react-router-dom';
-import { db } from '../firebase/firebase';
+import { db, auth } from '../firebase/firebase';
 import firebase from 'firebase/compat/app';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
-import remarkBreaks from 'remark-breaks';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { materialOceanic } from 'react-syntax-highlighter/dist/esm/styles/prism';
-
-const getEmbedUrl = (url) => {
-    if (url.includes('youtu.be/')) {
-        const videoId = url.split('youtu.be/')[1];
-        return `https://www.youtube.com/embed/${videoId}`;
-    } else if (url.includes('youtube.com/watch?v=')) {
-        const videoId = new URL(url).searchParams.get('v');
-        return `https://www.youtube.com/embed/${videoId}`;
-    }
-    return url;
-};
-
-const handleCopyCode = (code) => {
-    navigator.clipboard.writeText(code);
-    alert('Code copied to clipboard!');
-};
+import MarkdownEditor from './workshop/MarkdownEditor';
+import PresenterSelector from './workshop/PresenterSelector';
+import VideoPreview from './workshop/VideoPreview';
+import { DEFAULT_MARKDOWN } from './workshop/MarkdownPlaceholders';
 
 const UploadWorkshop = () => {
     const history = useHistory();
     const location = useLocation();
-    const [presenterInput, setPresenterInput] = useState(''); // Input for adding a presenter
+    const [allPresenters, setAllPresenters] = useState([]);
     const [formData, setFormData] = useState({
         title: '',
         videoLink: '',
-        date: '',
+        date: new Date().toISOString().split('T')[0],
         instructionsMarkdown: '',
-        presenters: [], // New presenters field
+        presenters: [],
     });
     const [isEditing, setIsEditing] = useState(false);
-    const editorRef = useRef(null);
-    const previewRef = useRef(null);
+    const [userRole, setUserRole] = useState(null);
+    const [currentUser, setCurrentUser] = useState(null);
 
+    // Fetch all unique presenters from the database
+    useEffect(() => {
+        const fetchPresenters = async () => {
+            try {
+                const snapshot = await db.collection('workshops').get();
+                const presentersSet = new Set();
+                
+                snapshot.docs.forEach(doc => {
+                    const workshop = doc.data();
+                    if (workshop.presenters && Array.isArray(workshop.presenters)) {
+                        workshop.presenters.forEach(presenter => {
+                            presentersSet.add(presenter);
+                        });
+                    }
+                });
+                
+                setAllPresenters(Array.from(presentersSet));
+            } catch (error) {
+                console.error("Error fetching presenters:", error);
+            }
+        };
+        
+        fetchPresenters();
+    }, []);
+
+    // Check if user has permission to manage workshops
+    useEffect(() => {
+        const checkPermission = async () => {
+            const currentUser = auth.currentUser;
+            
+            if (!currentUser) {
+                // Redirect if not logged in
+                history.push('/workshops');
+                return;
+            }
+
+            const userDoc = await db.collection('users').doc(currentUser.uid).get();
+            if (!userDoc.exists) {
+                history.push('/workshops');
+                return;
+            }
+
+            const role = userDoc.data().role;
+            setUserRole(role);
+            setCurrentUser(currentUser); // Store the current user
+            
+            // Redirect if not admin or workshop lead
+            if (role !== 'admin' && role !== 'workshop-lead') {
+                history.push('/workshops');
+                return;
+            }
+
+            // Add current user's name as a presenter by default (only for new workshops)
+            if (!isEditing) {
+                const displayName = currentUser.displayName || currentUser.email.split('@')[0];
+                
+                // Only add if not already in the presenters list
+                setFormData(prevData => {
+                    if (!prevData.presenters.includes(displayName)) {
+                        return {
+                            ...prevData,
+                            presenters: [...prevData.presenters, displayName],
+                            // Set default markdown for new workshops
+                            instructionsMarkdown: DEFAULT_MARKDOWN
+                        };
+                    }
+                    return prevData;
+                });
+            }
+        };
+
+        checkPermission();
+    }, [history, isEditing]);
+
+    // Load workshop data if editing an existing workshop
     useEffect(() => {
         const params = new URLSearchParams(location.search);
         const id = params.get('id');
@@ -54,9 +112,9 @@ const UploadWorkshop = () => {
                         setFormData({
                             title: data.title,
                             videoLink: data.videoLink,
-                            date: data.date.toDate().toISOString().split('T')[0], // Convert Firestore Timestamp to date string
+                            date: data.date.toDate().toISOString().split('T')[0],
                             instructionsMarkdown: data.instructionsMarkdown,
-                            presenters: data.presenters || [], // Initialize presenters field
+                            presenters: data.presenters || [],
                         });
                     }
                 });
@@ -68,14 +126,15 @@ const UploadWorkshop = () => {
         setFormData({ ...formData, [name]: value });
     };
 
-    const handleAddPresenter = () => {
-        if (presenterInput.trim() && !formData.presenters.includes(presenterInput.trim())) {
-            setFormData({
-                ...formData,
-                presenters: [...formData.presenters, presenterInput.trim()],
-            });
-            setPresenterInput('');
-        }
+    const handleMarkdownChange = (value) => {
+        setFormData({ ...formData, instructionsMarkdown: value });
+    };
+
+    const handleAddPresenter = (presenter) => {
+        setFormData({
+            ...formData,
+            presenters: [...formData.presenters, presenter],
+        });
     };
 
     const handleRemovePresenter = (presenter) => {
@@ -96,6 +155,22 @@ const UploadWorkshop = () => {
                 ...formData,
                 date: firebase.firestore.Timestamp.fromDate(utcDate), // Store as UTC midnight
             };
+            
+            // Add creator information
+            if (currentUser) {
+                workshopData.createdBy = {
+                    uid: currentUser.uid,
+                    email: currentUser.email,
+                    displayName: currentUser.displayName || currentUser.email.split('@')[0]
+                };
+                
+                // Add timestamp for creation/update
+                if (!isEditing) {
+                    workshopData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+                } else {
+                    workshopData.updatedAt = firebase.firestore.FieldValue.serverTimestamp();
+                }
+            }
 
             let workshopId;
             if (isEditing) {
@@ -114,15 +189,6 @@ const UploadWorkshop = () => {
         }
     };
 
-    const handleEditorScroll = () => {
-        if (editorRef.current && previewRef.current) {
-            const editor = editorRef.current;
-            const preview = previewRef.current;
-            const scrollRatio = editor.scrollTop / (editor.scrollHeight - editor.clientHeight);
-            preview.scrollTop = scrollRatio * (preview.scrollHeight - preview.clientHeight);
-        }
-    };
-
     return (
         <div className="flex flex-col items-center p-8 bg-gray-100 min-h-screen">
             <div className="relative w-full mb-8">
@@ -133,9 +199,9 @@ const UploadWorkshop = () => {
                         if (isEditing) {
                             const params = new URLSearchParams(location.search);
                             const id = params.get('id');
-                            history.push(`/workshops/${id}`); // Navigate to the Workshop Details page
+                            history.push(`/workshops/${id}`);
                         } else {
-                            history.push('/workshops'); // Navigate to the All Workshops page
+                            history.push('/workshops');
                         }
                     }}
                 >
@@ -144,7 +210,7 @@ const UploadWorkshop = () => {
             </div>
 
             <form
-                className="bg-white p-6 rounded shadow-md w-full max-w-4xl"
+                className="bg-white p-6 rounded shadow-md w-full max-w-6xl"
                 onSubmit={handleSubmit}
             >
                 <h1 className="text-2xl font-bold mb-4">
@@ -172,20 +238,9 @@ const UploadWorkshop = () => {
                         required
                     />
                 </div>
-                {formData.videoLink && (
-                    <div className="mb-4">
-                        <iframe
-                            className="rounded-lg shadow-lg"
-                            width="800"
-                            height="450"
-                            src={getEmbedUrl(formData.videoLink)}
-                            title="Video Preview"
-                            frameBorder="0"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                            allowFullScreen
-                        ></iframe>
-                    </div>
-                )}
+                
+                <VideoPreview videoLink={formData.videoLink} />
+                
                 <div className="mb-4">
                     <label className="block text-gray-700">Date</label>
                     <input
@@ -197,101 +252,35 @@ const UploadWorkshop = () => {
                         required
                     />
                 </div>
-                <div className="mb-4">
+                <div className="mb-8">
                     <label className="block text-gray-700">Presenters</label>
-                    <div className="flex items-center space-x-2">
-                        <input
-                            type="text"
-                            value={presenterInput}
-                            onChange={(e) => setPresenterInput(e.target.value)}
-                            placeholder="Add a presenter"
-                            className="w-full p-2 border rounded"
-                        />
-                        <button
-                            type="button"
-                            onClick={handleAddPresenter}
-                            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-                        >
-                            Add
-                        </button>
-                    </div>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                        {formData.presenters.map((presenter) => (
-                            <span
-                                key={presenter}
-                                className="flex items-center bg-gray-200 text-gray-700 px-3 py-1 rounded-full"
-                            >
-                                {presenter}
-                                <button
-                                    type="button"
-                                    onClick={() => handleRemovePresenter(presenter)}
-                                    className="ml-2 text-red-500 hover:text-red-700"
-                                >
-                                    &times;
-                                </button>
-                            </span>
-                        ))}
-                    </div>
+                    <PresenterSelector 
+                        presenters={formData.presenters}
+                        onAdd={handleAddPresenter}
+                        onRemove={handleRemovePresenter}
+                        allPresenters={allPresenters}
+                    />
                 </div>
-                <div className="flex space-x-4">
-                    <div className="w-1/2">
-                        <h2 className="text-lg font-bold mb-2">Markdown Editor</h2>
-                        <textarea
-                            ref={editorRef}
-                            name="instructionsMarkdown"
-                            value={formData.instructionsMarkdown}
-                            onChange={handleChange}
-                            onScroll={handleEditorScroll}
-                            className="w-full h-64 p-2 border rounded"
-                        ></textarea>
-                    </div>
-                    <div className="w-1/2">
-                        <h2 className="text-lg font-bold mb-2">Preview</h2>
-                        <div
-                            ref={previewRef}
-                            className="prose prose-lg p-4 border rounded bg-gray-50 h-64 overflow-auto break-words"
-                        >
-                            <ReactMarkdown
-                                remarkPlugins={[remarkGfm, remarkBreaks]}
-                                components={{
-                                    code({ node, inline, className, children, ...props }) {
-                                        const match = /language-(\w+)/.exec(className || '');
-                                        return !inline && match ? (
-                                            <div className="relative">
-                                                <button
-                                                    className="absolute top-0 right-0 bg-gray-200 text-gray-600 px-2 py-1 rounded-bl"
-                                                    onClick={() => handleCopyCode(String(children).replace(/\n$/, ''))}
-                                                >
-                                                    Copy
-                                                </button>
-                                                <SyntaxHighlighter
-                                                    style={materialOceanic}
-                                                    language={match[1]}
-                                                    PreTag="div"
-                                                    {...props}
-                                                >
-                                                    {String(children).replace(/\n$/, '')}
-                                                </SyntaxHighlighter>
-                                            </div>
-                                        ) : (
-                                            <code className={`bg-gray-100 px-1 rounded ${className}`} {...props}>
-                                                {children}
-                                            </code>
-                                        );
-                                    },
-                                }}
-                            >
-                                {formData.instructionsMarkdown}
-                            </ReactMarkdown>
-                        </div>
-                    </div>
+                
+                {/* Markdown Editor Section */}
+                <div className="mb-8">
+                    <h2 className="text-lg font-bold mb-2">Workshop Instructions</h2>
+                    <p className="text-gray-600 mb-4">Use Markdown to format your workshop instructions. The preview will show how it will appear to users.</p>
+                    
+                    <MarkdownEditor
+                        value={formData.instructionsMarkdown}
+                        onChange={handleMarkdownChange}
+                    />
                 </div>
-                <button
-                    type="submit"
-                    className="mt-4 w-full bg-blue-500 text-white py-2 rounded hover:bg-blue-600"
-                >
-                    {isEditing ? 'Save Changes' : 'Submit'}
-                </button>
+                
+                <div className="flex justify-end">
+                    <button
+                        type="submit"
+                        className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold"
+                    >
+                        {isEditing ? 'Save Changes' : 'Submit Workshop'}
+                    </button>
+                </div>
             </form>
         </div>
     );
