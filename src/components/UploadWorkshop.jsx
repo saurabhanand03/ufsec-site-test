@@ -361,7 +361,7 @@ const UploadWorkshop = () => {
                 <div className="mb-4">
                     <label className="block text-gray-700 mb-2">Workshop Media</label>
                     
-                    <div className="flex mb-3 bg-gray-100 rounded-md p-1 inline-flex">
+                    <div className="flex mb-3 bg-gray-100 rounded-md p-1">
                         <button
                             type="button"
                             onClick={() => setMediaType('video')}
