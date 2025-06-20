@@ -1,7 +1,10 @@
 import React from 'react';
 import { useHistory } from 'react-router-dom';
 
+// Modify the thumbnail section to handle missing video links
 const getYoutubeThumbnail = (url) => {
+    if (!url) return null;
+    
     let videoId = '';
     if (url.includes('youtu.be/')) {
         videoId = url.split('youtu.be/')[1];
@@ -9,7 +12,7 @@ const getYoutubeThumbnail = (url) => {
         const urlObj = new URL(url);
         videoId = urlObj.searchParams.get('v');
     }
-    return videoId ? `https://img.youtube.com/vi/${videoId}/0.jpg` : '';
+    return videoId ? `https://img.youtube.com/vi/${videoId}/0.jpg` : null;
 };
 
 const formatDate = (date) => {
@@ -28,7 +31,8 @@ const formatDate = (date) => {
     return date;
 };
 
-const WorkshopTile = ({ id, title, date, videoLink, presenters = [], createdBy = null, status = 'published' }) => {
+// Update the component parameters to include thumbnailImage
+const WorkshopTile = ({ id, title, date, videoLink, thumbnailImage, presenters = [], createdBy = null, status = 'published' }) => {
     const history = useHistory();
 
     const handleClick = () => {
@@ -48,11 +52,31 @@ const WorkshopTile = ({ id, title, date, videoLink, presenters = [], createdBy =
             )}
             
             <div className="aspect-w-16 aspect-h-9">
-                <img 
-                    className={`w-full h-full rounded-lg object-cover ${status === 'draft' ? 'opacity-70' : ''}`}
-                    src={getYoutubeThumbnail(videoLink)} 
-                    alt={title} 
-                />
+                {getYoutubeThumbnail(videoLink) ? (
+                    <img 
+                        className={`w-full h-full rounded-lg object-cover ${status === 'draft' ? 'opacity-70' : ''}`}
+                        src={getYoutubeThumbnail(videoLink)} 
+                        alt={title} 
+                    />
+                ) : thumbnailImage ? (
+                    <img 
+                        className={`w-full h-full rounded-lg object-cover ${status === 'draft' ? 'opacity-70' : ''}`}
+                        src={thumbnailImage} 
+                        alt={title} 
+                        onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.src = "/SECSquareLogo.png";
+                        }}
+                    />
+                ) : (
+                    <div className={`w-full h-full rounded-lg bg-gray-100 flex items-center justify-center ${status === 'draft' ? 'opacity-70' : ''}`}>
+                        <img 
+                            src="/SECSquareLogo.png" 
+                            alt="SEC Logo" 
+                            className="h-16 w-16 opacity-80"
+                        />
+                    </div>
+                )}
             </div>
             <h3 className="text-lg font-semibold mt-2">{title}</h3>
             <p className="text-gray-600">{formatDate(date)}</p>

@@ -328,19 +328,37 @@ const WorkshopDetail = () => {
                     </div>
                 )}
 
-                {/* Video without any top margin */}
-                <div className="flex justify-center">
-                    <iframe
-                        className="rounded-lg shadow-lg"
-                        width="800"
-                        height="450"
-                        src={getEmbedUrl(workshop.videoLink)}
-                        title={workshop.title}
-                        frameBorder="0"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                        allowFullScreen
-                    ></iframe>
-                </div>
+                {/* Video or Image Section - No top margin */}
+                {workshop.videoLink ? (
+                    <div className="flex justify-center">
+                        <iframe
+                            className="rounded-lg shadow-lg"
+                            width="800"
+                            height="450"
+                            src={getEmbedUrl(workshop.videoLink)}
+                            title={workshop.title}
+                            frameBorder="0"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                            allowFullScreen
+                        ></iframe>
+                    </div>
+                ) : workshop.thumbnailImage ? (
+                    <div className="flex justify-center">
+                        <div className="w-full max-w-3xl">
+                            <div className="aspect-w-16 aspect-h-9">
+                                <img 
+                                    src={workshop.thumbnailImage} 
+                                    alt={workshop.title}
+                                    className="rounded-lg shadow-lg object-cover w-full h-full" 
+                                    onError={(e) => {
+                                        e.target.onerror = null;
+                                        e.target.src = "/SECSquareLogo.png";
+                                    }}
+                                />
+                            </div>
+                        </div>
+                    </div>
+                ) : null}
             </div>
 
             <h1 className="text-4xl font-bold text-center mb-4">{workshop.title}</h1>

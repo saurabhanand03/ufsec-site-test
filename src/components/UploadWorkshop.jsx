@@ -83,6 +83,7 @@ const UploadWorkshop = () => {
     const [showPublishModal, setShowPublishModal] = useState(false);
     const [showSuccessModal, setShowSuccessModal] = useState(false);
     const [workshopId, setWorkshopId] = useState(null);
+    const [mediaType, setMediaType] = useState('video'); // 'video' or 'image'
 
     // Fetch all unique presenters from the database
     useEffect(() => {
@@ -175,7 +176,8 @@ const UploadWorkshop = () => {
                         const data = doc.data();
                         setFormData({
                             title: data.title,
-                            videoLink: data.videoLink,
+                            videoLink: data.videoLink || '',
+                            thumbnailImage: data.thumbnailImage || '', // Add this line to load thumbnailImage
                             date: data.date.toDate().toISOString().split('T')[0],
                             instructionsMarkdown: data.instructionsMarkdown,
                             presenters: data.presenters || [],
@@ -185,6 +187,15 @@ const UploadWorkshop = () => {
                 });
         }
     }, [location]);
+
+    // Set the correct media type based on existing data
+    useEffect(() => {
+        if (formData.thumbnailImage && !formData.videoLink) {
+            setMediaType('image');
+        } else {
+            setMediaType('video'); // Default to video otherwise
+        }
+    }, [formData.thumbnailImage, formData.videoLink]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -345,20 +356,92 @@ const UploadWorkshop = () => {
                         required
                     />
                 </div>
+                
+                {/* Media Section - Video Link or Image URL */}
                 <div className="mb-4">
-                    <label className="block text-gray-700">Video Link</label>
-                    <input
-                        type="url"
-                        name="videoLink"
-                        value={formData.videoLink}
-                        onChange={handleChange}
-                        className="w-full p-2 border rounded"
-                        required
-                    />
+                    <label className="block text-gray-700 mb-2">Workshop Media</label>
+                    
+                    <div className="flex mb-3 bg-gray-100 rounded-md p-1 inline-flex">
+                        <button
+                            type="button"
+                            onClick={() => setMediaType('video')}
+                            className={`px-4 py-2 rounded ${
+                                mediaType === 'video' 
+                                    ? 'bg-white shadow-sm' 
+                                    : 'bg-transparent text-gray-600'
+                            }`}
+                        >
+                            YouTube Video
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setMediaType('image')}
+                            className={`px-4 py-2 rounded ${
+                                mediaType === 'image' 
+                                    ? 'bg-white shadow-sm' 
+                                    : 'bg-transparent text-gray-600'
+                            }`}
+                        >
+                            Image URL
+                        </button>
+                    </div>
+                    
+                    {mediaType === 'video' ? (
+                        <>
+                            <input
+                                type="url"
+                                name="videoLink"
+                                value={formData.videoLink}
+                                onChange={(e) => {
+                                    setFormData({
+                                        ...formData,
+                                        videoLink: e.target.value,
+                                        thumbnailImage: '' // Clear thumbnail image when adding a video link
+                                    });
+                                }}
+                                className="w-full p-2 border rounded"
+                                placeholder="YouTube video URL (e.g. https://youtu.be/example)"
+                            />
+                            {formData.videoLink && <VideoPreview videoLink={formData.videoLink} />}
+                        </>
+                    ) : (
+                        <>
+                            <input
+                                type="url"
+                                name="thumbnailImage"
+                                value={formData.thumbnailImage}
+                                onChange={(e) => {
+                                    setFormData({
+                                        ...formData,
+                                        thumbnailImage: e.target.value,
+                                        videoLink: '' // Clear video link when adding a thumbnail image
+                                    });
+                                }}
+                                className="w-full p-2 border rounded"
+                                placeholder="Image URL for workshop thumbnail"
+                            />
+                            {formData.thumbnailImage && (
+                                <div className="mt-2 border border-gray-300 rounded overflow-hidden">
+                                    <img 
+                                        src={formData.thumbnailImage} 
+                                        alt="Thumbnail preview" 
+                                        className="max-h-60 object-contain"
+                                        onError={(e) => {
+                                            e.target.onerror = null;
+                                            e.target.src = "/SECSquareLogo.png";
+                                        }}
+                                    />
+                                </div>
+                            )}
+                        </>
+                    )}
+                    <p className="text-sm text-gray-500 mt-1">
+                        {mediaType === 'video' ? 
+                            "Enter a YouTube video URL to embed in the workshop" : 
+                            "Provide an image URL to display as the workshop thumbnail"}
+                    </p>
                 </div>
-                
-                <VideoPreview videoLink={formData.videoLink} />
-                
+
                 <div className="mb-4">
                     <label className="block text-gray-700">Date</label>
                     <input
@@ -370,60 +453,59 @@ const UploadWorkshop = () => {
                         required
                     />
                 </div>
+
                 <div className="mb-8">
                     <label className="block text-gray-700">Presenters</label>
-                    <PresenterSelector 
+                    <PresenterSelector
                         presenters={formData.presenters}
+                        allPresenters={allPresenters}
                         onAdd={handleAddPresenter}
                         onRemove={handleRemovePresenter}
-                        allPresenters={allPresenters}
                     />
                 </div>
-                
-                {/* Markdown Editor Section */}
-                <div className="mb-8">
-                    <h2 className="text-lg font-bold mb-2">Workshop Instructions</h2>
-                    <p className="text-gray-600 mb-4">Use Markdown to format your workshop instructions. The preview will show how it will appear to users.</p>
-                    
+
+                <div className="mb-6">
+                    <label className="block text-gray-700">Instructions (Markdown)</label>
                     <MarkdownEditor
                         value={formData.instructionsMarkdown}
                         onChange={handleMarkdownChange}
                     />
+                    <p className="text-gray-600 mb-4">Use Markdown to format your workshop instructions. The preview will show how it will appear to users.</p>
                 </div>
-                
-                <div className="flex justify-end space-x-4">
-                    {isEditing && formData.status === 'draft' && (userRole === 'admin' || userRole === 'workshop-lead') && (
-                        <button
-                            type="button"
-                            onClick={handlePublishClick}
-                            className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 font-semibold"
-                        >
-                            Publish Workshop
-                        </button>
-                    )}
+
+                <div className="flex justify-between">
                     <button
                         type="submit"
                         className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 font-semibold"
                     >
                         {isEditing ? 'Save Changes' : 'Save as Draft'}
                     </button>
+                    {isEditing && formData.status === 'draft' && (userRole === 'admin' || userRole === 'workshop-lead') && (
+                        <button
+                            onClick={handlePublishClick}
+                            className="px-6 py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 font-semibold"
+                            type="button"
+                        >
+                            Publish Workshop
+                        </button>
+                    )}
                 </div>
+
+                {/* Publish Confirmation Modal */}
+                <PublishModal
+                    isOpen={showPublishModal}
+                    onConfirm={handlePublishConfirm}
+                    onClose={() => setShowPublishModal(false)}
+                    workshopTitle={formData.title}
+                />
+
+                {/* Success Modal */}
+                <SuccessModal
+                    isOpen={showSuccessModal}
+                    onClose={handleSuccessModalClose}
+                    workshopTitle={formData.title}
+                />
             </form>
-            
-            {/* Publish Confirmation Modal */}
-            <PublishModal 
-                isOpen={showPublishModal}
-                onClose={() => setShowPublishModal(false)}
-                onConfirm={handlePublishConfirm}
-                workshopTitle={formData.title}
-            />
-            
-            {/* Success Modal */}
-            <SuccessModal 
-                isOpen={showSuccessModal}
-                onClose={handleSuccessModalClose}
-                workshopTitle={formData.title}
-            />
         </div>
     );
 };

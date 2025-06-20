@@ -192,7 +192,8 @@ const Workshops = () => {
                         id={workshop.id} 
                         title={workshop.title} 
                         date={workshop.date} 
-                        videoLink={workshop.videoLink} 
+                        videoLink={workshop.videoLink}
+                        thumbnailImage={workshop.thumbnailImage} 
                         presenters={workshop.presenters}
                         createdBy={workshop.createdBy}
                         status={workshop.status}
